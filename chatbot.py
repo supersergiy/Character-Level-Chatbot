@@ -15,18 +15,18 @@ from model import Model
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--save_dir', type=str, default='models/reddit',
+    parser.add_argument('--save_dir', type=str, default='models/new_save',
                        help='model directory to store checkpointed models')
     parser.add_argument('-n', type=int, default=500,
                        help='number of characters to sample')
     parser.add_argument('--prime', type=str, default=' ',
                        help='prime text')
-    parser.add_argument('--beam_width', type=int, default=2,
+    parser.add_argument('--beam_width', type=int, default=1,
                        help='Width of the beam for beam search, default 2')
-    parser.add_argument('--temperature', type=float, default=1.0,
+    parser.add_argument('--temperature', type=float, default=1.,
                        help='sampling temperature'
                        '(lower is more conservative, default is 1.0, which is neutral)')
-    parser.add_argument('--relevance', type=float, default=-1.,
+    parser.add_argument('--relevance', type=float, default=-0.2,
                        help='amount of "relevance masking/MMI (disabled by default):"'
                        'higher is more pressure, 0.4 is probably as high as it can go without'
                        'noticeably degrading coherence;'
@@ -64,8 +64,11 @@ def sample_main(args):
     # Create the model from the saved arguments, in inference mode.
     print("Creating model...")
     net = Model(saved_args, True)
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    #config = tf.ConfigProto()
+    #config.gpu_options.allow_growth = True
+    config = tf.ConfigProto(
+                    device_count = {'GPU': 0}
+                        )
     with tf.Session(config=config) as sess:
         tf.initialize_all_variables().run()
         saver = tf.train.Saver(net.save_variables_list())

@@ -11,27 +11,27 @@ from model import Model
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/scotus',
+    parser.add_argument('--data_dir', type=str, default='data/reddit',
                        help='data directory containing input.txt')
     parser.add_argument('--save_dir', type=str, default='models/new_save',
                        help='directory for checkpointed models (load from here if one is already present)')
-    parser.add_argument('--rnn_size', type=int, default=1500,
+    parser.add_argument('--rnn_size', type=int, default=700,
                        help='size of RNN hidden state')
-    parser.add_argument('--num_layers', type=int, default=4,
+    parser.add_argument('--num_layers', type=int, default=1,
                        help='number of layers in the RNN')
     parser.add_argument('--model', type=str, default='gru',
                        help='rnn, gru, or lstm')
-    parser.add_argument('--batch_size', type=int, default=40,
+    parser.add_argument('--batch_size', type=int, default=100,
                        help='minibatch size')
-    parser.add_argument('--seq_length', type=int, default=50,
+    parser.add_argument('--seq_length', type=int, default=30,
                        help='RNN sequence length')
-    parser.add_argument('--num_epochs', type=int, default=50,
+    parser.add_argument('--num_epochs', type=int, default=100,
                        help='number of epochs')
     parser.add_argument('--save_every', type=int, default=1000,
                        help='save frequency')
-    parser.add_argument('--grad_clip', type=float, default=5.,
+    parser.add_argument('--grad_clip', type=float, default=50.,
                        help='clip gradients at this value')
-    parser.add_argument('--learning_rate', type=float, default=6e-5,
+    parser.add_argument('--learning_rate', type=float, default=1e-5,
                        help='learning rate')
     parser.add_argument('--decay_rate', type=float, default=0.95,
                        help='how much to decay the learning rate')
@@ -87,6 +87,9 @@ def train(args):
             saver.restore(sess, ckpt.model_checkpoint_path)
         global_epoch_fraction = sess.run(model.global_epoch_fraction)
         global_seconds_elapsed = sess.run(model.global_seconds_elapsed)
+
+        sess.run(tf.assign(model.lr, args.learning_rate))
+
         if load_model: print("Resuming from global epoch fraction {:.3f},"
                 " total trained time: {}, learning rate: {}".format(
                 global_epoch_fraction, global_seconds_elapsed, sess.run(model.lr)))
@@ -95,8 +98,8 @@ def train(args):
                 - int(global_epoch_fraction)) * data_loader.total_batch_count)
         epoch_range = (int(global_epoch_fraction),
                 args.num_epochs + int(global_epoch_fraction))
-        writer = tf.train.SummaryWriter(args.save_dir, graph=tf.get_default_graph())
-        outputs = [model.cost, model.final_state, model.train_op, model.summary_op]
+        #writer = tf.train.SummaryWriter(args.save_dir, graph=tf.get_default_graph())
+        outputs = [model.cost, model.final_state, model.train_op]#, model.summary_op]
         is_lstm = args.model == 'lstm'
         global_step = epoch_range[0] * data_loader.total_batch_count + initial_batch_step
         try:
@@ -137,10 +140,10 @@ def train(args):
                     # Final state is used to carry over the state into the next batch.
                     # Training op is not used, but we want it to be calculated, since that calculation
                     # is what updates parameter states (i.e. that is where the training happens).
-                    train_loss, state, _, summary = sess.run(outputs, feed)
+                    train_loss, state, _ = sess.run(outputs, feed)
                     elapsed = time.time() - start
                     global_seconds_elapsed += elapsed
-                    writer.add_summary(summary, e * batch_range[1] + b + 1)
+                    #writer.add_summary(summary, e * batch_range[1] + b + 1)
                     print "{}/{} (epoch {}/{}), loss = {:.3f}, time/batch = {:.3f}s" \
                         .format(b, batch_range[1], e, epoch_range[1], train_loss, elapsed)
                     # Every save_every batches, save the model to disk.
@@ -154,7 +157,7 @@ def train(args):
             # is on its own line.
             print()
         finally:
-            writer.flush()
+            #writer.flush()
             global_step = e * data_loader.total_batch_count + b
             save_model(sess, saver, model, args.save_dir, global_step,
                     data_loader.total_batch_count, global_seconds_elapsed)
